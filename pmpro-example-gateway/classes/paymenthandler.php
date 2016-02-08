@@ -21,13 +21,15 @@
 	//assign posted variables to local variables
 	global $wpdb;
 	$authorised = false;
-	$md5Hash = 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
+	$md5Hash = 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
 	$txnSecureHash = pmpro_getParam("vpc_SecureHash","REQUEST");
 	$txnref = pmpro_getParam("vpc_MerchTxnRef","REQUEST");
 	$order_id = explode( '_', $txnref );
 	$tax_responce=pmpro_getParam("vpc_TxnResponseCode","REQUEST");
 	$order_id = (int) $order_id[0];
-	$DR = $this->parseDigitalReceipt();
+	$DR = parseDigitalReceipt();
+	$msg['class']   = 'error';
+	$msg['message'] = "Thank you for shopping with us. However, the transaction has been declined.";
 	
 	$txn_type = pmpro_getParam("txn_type", "POST");
 	$subscr_id = pmpro_getParam("subscr_id", "POST");
@@ -58,8 +60,7 @@
 			// 
 			// $ThreeDSecureData = $this->parse3DSecureData();			
 			
-			 $msg['class']   = 'error';
-			 $msg['message'] = "Thank you for shopping with us. However, the transaction has been declined.";
+			 
 			
 			 if ( strlen($md5Hash) > 0 && $tax_responce != "7" && $tax_responce != "No Value Returned") {
 			
@@ -85,31 +86,35 @@
 		
 		return $authorised;
 	}
+	if(pmpro_ipnValidate()){
+		
+		
+	}
 	
-	private function parseDigitalReceipt() {
+	function parseDigitalReceipt() {
 			$dReceipt = array(
-				"amount" 			=> $this->null2unknown( pmpro_getParam("vpc_Amount","REQUEST")),
-				"locale"          	=> $this->null2unknown( pmpro_getParam("vpc_Locale","REQUEST")),
-				"batchNo"         	=> $this->null2unknown( pmpro_getParam("vpc_BatchNo","REQUEST")),
-				"command"         	=> $this->null2unknown( pmpro_getParam("vpc_Command","REQUEST")),
-				"message"         	=> $this->null2unknown( pmpro_getParam("vpc_Message","REQUEST")),
-				"version"         	=> $this->null2unknown( pmpro_getParam("vpc_Version","REQUEST")),
-				"cardType"        	=> $this->null2unknown( pmpro_getParam("vpc_Card","REQUEST")),
-				"orderInfo"       	=> $this->null2unknown( pmpro_getParam("vpc_OrderInfo","REQUEST")),
-				"receiptNo"       	=> $this->null2unknown( pmpro_getParam("vpc_ReceiptNo","REQUEST")),
-				"merchantID"      	=> $this->null2unknown( pmpro_getParam("vpc_Merchant","REQUEST")),
-				"authorizeID"     	=> $this->null2unknown( pmpro_getParam("vpc_AuthorizeId","REQUEST")),
-				"merchTxnRef"     	=> $this->null2unknown( pmpro_getParam("vpc_MerchTxnRef","REQUEST")),
-				"transactionNo"   	=> $this->null2unknown( pmpro_getParam("vpc_TransactionNo","REQUEST")),
-				"acqResponseCode" 	=> $this->null2unknown( pmpro_getParam("vpc_AcqResponseCode","REQUEST")),
-				"txnResponseCode" 	=> $this->null2unknown( pmpro_getParam("vpc_TxnResponseCode","REQUEST"))
+				"amount" 			=> null2unknown( pmpro_getParam("vpc_Amount","REQUEST")),
+				"locale"          	=> null2unknown( pmpro_getParam("vpc_Locale","REQUEST")),
+				"batchNo"         	=> null2unknown( pmpro_getParam("vpc_BatchNo","REQUEST")),
+				"command"         	=> null2unknown( pmpro_getParam("vpc_Command","REQUEST")),
+				"message"         	=> null2unknown( pmpro_getParam("vpc_Message","REQUEST")),
+				"version"         	=> null2unknown( pmpro_getParam("vpc_Version","REQUEST")),
+				"cardType"        	=> null2unknown( pmpro_getParam("vpc_Card","REQUEST")),
+				"orderInfo"       	=> null2unknown( pmpro_getParam("vpc_OrderInfo","REQUEST")),
+				"receiptNo"       	=> null2unknown( pmpro_getParam("vpc_ReceiptNo","REQUEST")),
+				"merchantID"      	=> null2unknown( pmpro_getParam("vpc_Merchant","REQUEST")),
+				"authorizeID"     	=> null2unknown( pmpro_getParam("vpc_AuthorizeId","REQUEST")),
+				"merchTxnRef"     	=> null2unknown( pmpro_getParam("vpc_MerchTxnRef","REQUEST")),
+				"transactionNo"   	=> null2unknown( pmpro_getParam("vpc_TransactionNo","REQUEST")),
+				"acqResponseCode" 	=> null2unknown( pmpro_getParam("vpc_AcqResponseCode","REQUEST")),
+				"txnResponseCode" 	=> null2unknown( pmpro_getParam("vpc_TxnResponseCode","REQUEST"))
 			);
 			return $dReceipt;
 		}
 		/**
 		* Handle null values
 		*/
-		private function null2unknown($data) {
+	function null2unknown($data) {
 			if ($data == "") {
 				return "No Value Returned";
 			} else {
@@ -139,244 +144,35 @@
 
 	*/
 
-	//PayPal Standard Sign Up
-	if($txn_type == "subscr_signup")
-	{
-		//if there is no amount1, this membership has a trial, and we need to update membership/etc
-		$amount = pmpro_getParam("amount1", "POST");
-
-		if((float)$amount <= 0)
-		{
-			//trial, get the order
-			$morder = new MemberOrder($item_number);
-			$morder->getMembershipLevel();
-			$morder->getUser();
-
-			//no txn_id on these, so let's use the subscr_id
-			if(empty($txn_id))
-				$txn_id = $subscr_id;
-
-			//update membership
-			if(pmpro_ipnChangeMembershipLevel($txn_id, $morder))
-			{
-				ipnlog("Checkout processed (" . $morder->code . ") success!");
-			}
-			else
-			{
-				ipnlog("ERROR: Couldn't change level for order (" . $morder->code . ").");
-			}
-		}
-		else
-		{
-			//we're ignoring this. we will get a payment notice from IPN and process that
-			ipnlog("Going to wait for the first payment to go through.");
-		}
-
-		pmpro_ipnExit();
-	}
-
-	//PayPal Standard Subscription Payment
-	if($txn_type == "subscr_payment")
-	{
-		//is this a first payment?
-		$last_subscr_order = new MemberOrder();
-		if($last_subscr_order->getLastMemberOrderBySubscriptionTransactionID($subscr_id) == false)
-		{
-			//first payment, get order
-			$morder = new MemberOrder($_POST['item_number']);
-			$morder->getMembershipLevel();
-			$morder->getUser();
-
-			//update membership
-			if(pmpro_ipnChangeMembershipLevel($txn_id, $morder))
-			{
-				ipnlog("Checkout processed (" . $morder->code . ") success!");
-			}
-			else
-			{
-				ipnlog("ERROR: Couldn't change level for order (" . $morder->code . ").");
-			}
-
-			pmpro_ipnExit();
-		}
-		else
-		{
-			//subscription payment, completed or failure?
-			if($_POST['payment_status'] == "Completed")
-				pmpro_ipnSaveOrder($txn_id, $last_subscr_order);
-			elseif($_POST['payment_status'] == "Failed")
-				pmpro_ipnFailedPayment($last_subscr_order);
-			else
-				ipnlog('Payment status is ' . $_POST['payment_status'] . '.');
-
-			pmpro_ipnExit();
-		}
-	}
-
 	//PayPal Standard Single Payment
-	if($txn_type == "web_accept" && !empty($item_number))
+	if($authorised)
 	{
 		//initial payment, get the order
-		$morder = new MemberOrder($item_number);
+		$morder = new MemberOrder($txnref);
 		$morder->getMembershipLevel();
 		$morder->getUser();
 
 		//update membership
-		if(pmpro_ipnChangeMembershipLevel($txn_id, $morder))
+		if(pmpro_ipnChangeMembershipLevel($order_id, $morder))
 		{
 			ipnlog("Checkout processed (" . $morder->code . ") success!");
+			echo 'Success';
 		}
 		else
 		{
 			ipnlog("ERROR: Couldn't change level for order (" . $morder->code . ").");
+			echo "fail";
 		}
 
 		pmpro_ipnExit();
 	}
 
-	//PayPal Express Recurring Payments
-	if($txn_type == "recurring_payment")
-	{
-		$last_subscr_order = new MemberOrder();
-		if($last_subscr_order->getLastMemberOrderBySubscriptionTransactionID($subscr_id))
-		{
-			//subscription payment, completed or failure?
-			if($_POST['payment_status'] == "Completed")
-				pmpro_ipnSaveOrder($txn_id, $last_subscr_order);
-			else
-				pmpro_ipnFailedPayment($last_subscr_order);
-		}
-		else
-		{
-			ipnlog("ERROR: Couldn't find last order for this recurring payment (" . $subscr_id . ").");
-		}
-
-		pmpro_ipnExit();
-	}
 
 	//Recurring Payment Profile Cancelled (PayPal Express)
-	if($txn_type == "recurring_payment_profile_cancel")
-	{
-		//find last order
-		$last_subscr_order = new MemberOrder();
-		if($last_subscr_order->getLastMemberOrderBySubscriptionTransactionID($recurring_payment_id) == false)
-		{
-			ipnlog("ERROR: Couldn't find this order to cancel (subscription_transaction_id=" . $recurring_payment_id . ").");
-
-			pmpro_ipnExit();
-		}
-		else
-		{
-			//found order, let's cancel the membership
-			$user = get_userdata($last_subscr_order->user_id);
-
-			if(empty($user) || empty($user->ID))
-			{
-				ipnlog("ERROR: Could not cancel membership. No user attached to order #" . $last_subscr_order->id . " with subscription transaction id = " . $recurring_payment_id . ".");
-			}
-			else
-			{
-				/*
-					We want to make sure this is a cancel originating from PayPal and not one already handled by PMPro.
-					For example, if a user cancels on WP/PMPro side, we've already cancelled the membership.
-					Also, if a user is changing levels, we don't want to cancel their new membership, just the old subscription at PayPal.
-
-					So we check 2 things and don't cancel if:
-					(1) This order already has "cancelled" status.
-					(2) The user doesn't currently have the level attached to this order.
-				*/
-
-				if($last_subscr_order->status == "cancelled")
-				{
-					ipnlog("We've already processed this cancellation. Probably originated from WP/PMPro. (Order #" . $last_subscr_order->id . ", Subscription Transaction ID #" . $recurring_payment_id . ")");
-				}
-				elseif(!pmpro_hasMembershipLevel($last_subsc_order->membership_id, $user->ID))
-				{
-					ipnlog("This user has a different level than the one associated with this order. Their membership was probably changed by an admin or through an upgrade/downgrade. (Order #" . $last_subscr_order->id . ", Subscription Transaction ID #" . $recurring_payment_id . ")");
-				}
-				else
-				{
-					//if the initial payment failed, cancel with status error instead of cancelled
-					if($initial_payment_status === "Failed")
-						pmpro_changeMembershipLevel(0, $last_subscr_order->user_id, 'error');
-					else
-						pmpro_changeMembershipLevel(0, $last_subscr_order->user_id, 'cancelled');
-
-					ipnlog("Cancelled membership for user with id = " . $last_subscr_order->user_id . ". Subscription transaction id = " . $recurring_payment_id . ".");
-
-					//send an email to the member
-					$myemail = new PMProEmail();
-					$myemail->sendCancelEmail($user);
-
-					//send an email to the admin
-					$myemail = new PMProEmail();
-					$myemail->sendCancelAdminEmail($user, $last_subscr_order->membership_id);
-				}
-			}
-
-			pmpro_ipnExit();
-		}
-	}
+	
 
 	//Subscription Cancelled (PayPal Standard)
-	if($txn_type == "subscr_cancel")
-	{
-		//find last order
-		$last_subscr_order = new MemberOrder();
-		if($last_subscr_order->getLastMemberOrderBySubscriptionTransactionID($subscr_id) == false)
-		{
-			ipnlog("ERROR: Couldn't find this order to cancel (subscription_transaction_id=" . $subscr_id . ").");
-
-			pmpro_ipnExit();
-		}
-		else
-		{
-			//found order, let's cancel the membership
-			$user = get_userdata($last_subscr_order->user_id);
-
-			if(empty($user) || empty($user->ID))
-			{
-				ipnlog("ERROR: Could not cancel membership. No user attached to order #" . $last_subscr_order->id . " with subscription transaction id = " . $subscr_id . ".");
-			}
-			else
-			{
-				/*
-					We want to make sure this is a cancel originating from PayPal and not one already handled by PMPro.
-					For example, if a user cancels on WP/PMPro side, we've already cancelled the membership.
-					Also, if a user is changing levels, we don't want to cancel their new membership, just the old subscription at PayPal.
-
-					So we check 2 things and don't cancel if:
-					(1) This order already has "cancelled" status.
-					(2) The user doesn't currently have the level attached to this order.
-				*/
-
-				if($last_subscr_order->status == "cancelled")
-				{
-					ipnlog("We've already processed this cancellation. Probably originated from WP/PMPro. (Order #" . $last_subscr_order->id . ", Subscription Transaction ID #" . $subscr_id . ")");
-				}
-				elseif(!pmpro_hasMembershipLevel($last_subsc_order->membership_id, $user->ID))
-				{
-					ipnlog("This user has a different level than the one associated with this order. Their membership was probably changed by an admin or through an upgrade/downgrade. (Order #" . $last_subscr_order->id . ", Subscription Transaction ID #" . $subscr_id . ")");
-				}
-				else
-				{
-					pmpro_changeMembershipLevel(0, $last_subscr_order->user_id, 'cancelled');
-
-					ipnlog("Canceled membership for user with id = " . $last_subscr_order->user_id . ". Subscription transaction id = " . $subscr_id . ".");
-
-					//send an email to the member
-					$myemail = new PMProEmail();
-					$myemail->sendCancelEmail($user);
-
-					//send an email to the admin
-					$myemail = new PMProEmail();
-					$myemail->sendCancelAdminEmail($user, $last_subscr_order->membership_id);
-				}
-			}
-
-			pmpro_ipnExit();
-		}
-	}
+	
 
 	//Other
 	//if we got here, this is a different kind of txn

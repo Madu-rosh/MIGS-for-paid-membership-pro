@@ -922,8 +922,7 @@
 			}
 			$service_host = $this->service_host."?";
 			$rurl = admin_url("admin-ajax.php") . "?action=paymenthandler";
-			//$rurl='https://nibaya.com/ccc/wp-content/plugins/pmpro-example-gateway/classes/class.pmprogateway_example.php?';
-			//$rurl = pmpro_url("confirmation", "?level=" . $order->membership_level);
+			
 			$user_ID = get_current_user_id();			
 			$DigitalOrder = array(
 				"vpc_Version" => "1",
@@ -931,12 +930,9 @@
 				"vpc_AccessCode" => pmpro_getOption("accescodee"),
 				"vpc_MerchTxnRef" => $order_id,
 				"vpc_Merchant" => pmpro_getOption("merchantide"),
-				"vpc_OrderInfo" => "VPC",
+				"vpc_OrderInfo" => "VPC".$order->getRandomCode(),
 				"vpc_Amount" => $order_amount,
 				"vpc_Locale" => "en",
-				//"vpc_ReturnURL" => get_home_url().'/membership-account/membership-confirmation/?level='.$level_id
-				//"vpc_ReturnURL" => get_home_url().'/membership-account/membership-confirmation/ssl?level='.$level_id
-				//"vpc_ReturnURL" => get_home_url().'/mypage'
 				"vpc_ReturnURL" => $rurl
 			);
 			
