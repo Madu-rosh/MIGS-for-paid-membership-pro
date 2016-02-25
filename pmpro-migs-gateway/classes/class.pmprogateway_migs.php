@@ -290,11 +290,13 @@
 			
 			//just save, the user will go to 2checkout to pay
 			$order->status = "review";	
-			//$order->subscription_transaction_id=$order_id.'_'.date("Y-m-d");
+			$order->payment_transaction_id = $order->code;
+			$order->subscription_transaction_id=$order->code.'_'.date("Y-m-d");
+			$order->membership_level = apply_filters("pmpro_checkout_level", $order->membership_level);
 			$order->saveOrder();
 			//sendToMigs($order);
-			if($this->charge($order))
-			return true;else return false;	
+			//if($this->sendToMigs($order))
+			return true;//else return false;	
 		}
 		
 		function sendToMigs(&$order)
@@ -373,7 +375,7 @@
 				$this->service_host = "https://migs.mastercard.com.au/vpcpay";
 			}
 			$service_host = $this->service_host."?";
-			$rurl = admin_url("admin-ajax.php",'https') . "?action=migspaymenthandler";
+			$rurl = admin_url("admin-ajax.php") . "?action=migspaymenthandler";
 			//$rurl='https://nibaya.com/ccc/wp-content/plugins/pmpro-example-gateway/classes/paymenthandler.php?';
 			//$rurl = pmpro_url("confirmation", "?level=" . $order->membership_level);
 			$user_ID = get_current_user_id();			
